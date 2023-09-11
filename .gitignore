@@ -2,8 +2,12 @@
 .vscode/
 .python-version
 illustgrid-py3.11.4/
-Images/
 test/
+
+# Ignore image files
+Images/* .jpg
+Images/* .jpeg
+Images/* .png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

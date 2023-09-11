@@ -211,7 +211,7 @@ class IllustGrid:
 if __name__ == "__main__":
     root = tk.Tk()
     root.resizable(width=True, height=True)  # ウィンドウのサイズ変更を許可
-    folder_path = r"D:\ダウンロード"
-    thumbnail_width = 300
+    folder_path = r"Images"
+    thumbnail_width = 300  # 表示される画像の初期幅が変えられます
     app = IllustGrid(root, folder_path, thumbnail_width)
     app.run()
