@@ -5,9 +5,9 @@ illustgrid-py3.11.4/
 test/
 
 # Ignore image files
-Images/* .jpg
-Images/* .jpeg
-Images/* .png
+Images/**/*.jpg
+Images/**/*.jpeg
+Images/**/*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
