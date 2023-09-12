@@ -7,6 +7,14 @@ from PIL import Image, ImageTk
 
 class IllustGrid:
     def __init__(self, root, folder_path, thumbnail_width):
+        """
+        ウィンドウ構造
+        root
+        |-- main_frame
+            |-- canvas ...並べた画像を描画
+            |-- sidebar_frame ...シャッフル、スライダー等のボタンを表示
+        """
+
         self.root = root
         self.root.title("IllustGrid")
 
@@ -16,18 +24,21 @@ class IllustGrid:
         self.shuffled_files = self.shuffle_images(
             self.image_files)  # 取得したデータをランダムに並べ替え
 
+        # 画像配置に使う変数
         self.thumbnail_width = thumbnail_width
         self.dy = 20
         self.dx = 15
 
         # GUIの描画
         self.main_frame = ttk.Frame(self.root)  # キャンバスとサイドバーを内包するフレーム
-        self.main_frame.grid(row=0, column=0, sticky=tk.NSEW)
-        # キャンバスを配置
-        self.canvas = tk.Canvas(self.main_frame, bg="#555555")
+        self.main_frame.pack(expand=True, fill=tk.BOTH)
+        # ウィンドウサイズ変化時、キャンバス描画エリアを調整するように
+        self.main_frame.rowconfigure(0, weight=1)
+        self.main_frame.columnconfigure(0, weight=1)
+
+        # キャンバス
+        self.canvas = tk.Canvas(self.main_frame)
         self.canvas.grid(row=0, column=0, sticky=tk.NSEW)
-        self.main_frame.grid_rowconfigure(0, weight=1)
-        self.main_frame.grid_columnconfigure(0, weight=1)
         self.canvas.config(width=960, height=600)  # キャンバスの初期サイズ設定
 
         # サイドバーフレーム
@@ -45,10 +56,9 @@ class IllustGrid:
             xscrollcommand=self.scroll_x.set, yscrollcommand=self.scroll_y.set)
 
         # キャンバスのサイズ変更に対応させる処理
-        self.canvas.bind(
-            "<Configure>", self.on_canvas_configure)
+        self.main_frame.bind("<Configure>", self.on_canvas_configure)
         # マウスホイールに対応
-        self.canvas.bind_all("<MouseWheel>", self.y_scrolling)
+        self.main_frame.bind_all("<MouseWheel>", self.y_scrolling)
 
         # 再シャッフルボタン
         # ボタンの位置を指定（例：x座標は100、y座標は500）
@@ -132,8 +142,16 @@ class IllustGrid:
 
     def on_canvas_configure(self, event):
         """
-        取得した画像データを描画
+            取得した画像データを描画
 
+            ・配置処理
+                1. キャンバスサイズ取得
+                2. サムネサイズ取得
+                3. (canvas_width + dx) // (thumbnail_width + dx) で、列数求める
+                4. col_maxをmax列として、current_col = 0で宣言
+                5. リスト型 x, y に、列ごとの座標を格納
+                6. imageラベルを(pos_x[current_col], pos_y[current_col])の座標に配置。配置後current_col += 1
+                7. current_col >= col_maxまで列ずらして配置したら、current_col = 0で1列目から再配置
         Args:
             event (_type_): _description_
         """
@@ -145,42 +163,44 @@ class IllustGrid:
             canvas_width = event.width
         else:
             canvas_width = self.canvas.winfo_width()  # イベントがない場合、現在のキャンバスの幅を取得
-        canvas_height = 0
+
         thumbnail_width = self.thumbnail_width
-        col_num = canvas_width // thumbnail_width  # 列数。キャンバスと画像幅から計算
 
-        dy = self.dy
+        # 画像同士の距離
         dx = self.dx
-        y = [0 for _ in range(col_num)]  # レイアウトする画像のy座標
-        x = [(thumbnail_width + dx) * coef + dx
-             for coef in range(col_num)]  # 画像のx座標
+        dy = self.dy
 
+        col_max = (canvas_width + dx) // (thumbnail_width + dx)  # 列数
         current_col = 0
+        # 配置する位置を計算
+        x = [dx + (thumbnail_width + dx) * col for col in range(col_max)]
+        y = [0 for _ in range(col_max)]
 
-        # 画像レイアウト
         for image_file in self.shuffled_files:
-            # 画像をキャンバスに描画
-            image_path = os.path.join(folder_path, image_file)  # 画像パスの生成
-            image = Image.open(image_path)  # 変数に画像データを格納
-            image.thumbnail((thumbnail_width, 600))  # 幅だけ列幅に合わせる
+            image_path = os.path.join(folder_path, image_file)
+            image = Image.open(image_path)
+            image.thumbnail((thumbnail_width, 600))
+
             photo = ImageTk.PhotoImage(image)
+
             label = tk.Label(self.canvas, image=photo)
             label.image = photo
-            self.canvas.create_window(x[current_col], y[current_col],
-                                      anchor=tk.NW, window=label)
 
-            # 折り返し処理
+            # 画像をキャンバス内に配置
+            label.place(x=x[current_col], y=y[current_col])
             y[current_col] += image.height + dy
-            current_col += 1  # レイアウトする行をずらす
-            if (current_col >= col_num):  # もし最終行を越えた場合折り返す
-                current_col = 0
 
             # ウィンドウの高さ更新
-            max_canv_height = y[current_col] + image.height
-            if (canvas_height < max_canv_height):
-                canvas_height = max_canv_height
+            canvas_height = self.canvas.winfo_height()
+            if canvas_height < y[current_col]:
+                canvas_height = y[current_col]
+            self.canvas.config(scrollregion=(
+                0, 0, canvas_width, canvas_height))
 
-        self.canvas.config(scrollregion=(0, 0, canvas_width, canvas_height))
+            # 折り返し処理
+            current_col += 1
+            if current_col >= col_max:
+                current_col = 0
 
     def run(self):
         """
@@ -204,14 +224,14 @@ class IllustGrid:
         self.on_canvas_configure(None)
 
     def update_dx(self, value):
-        self.dx = int(float(value))
+        self.dx = int(value)
         self.on_canvas_configure(None)
 
 
 if __name__ == "__main__":
     root = tk.Tk()
     root.resizable(width=True, height=True)  # ウィンドウのサイズ変更を許可
-    folder_path = r"Images"
+    folder_path = r"Images"  # 画像フォルダのパス
     thumbnail_width = 300  # 表示される画像の初期幅が変えられます
     app = IllustGrid(root, folder_path, thumbnail_width)
     app.run()
